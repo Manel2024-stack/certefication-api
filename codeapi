@@ -1,0 +1,124 @@
+// Importation des dépendances
+const express = require('express');
+const mysql = require('mysql2');
+const bodyParser = require('body-parser');
+const cors = require("cors");
+
+
+
+// Création de l'application Express
+const app = express();
+const PORT = 3000;
+const corsOptions = {
+    origin: "http://127.0.0.1:5500",
+  };
+  
+app.use(bodyParser.json());
+app.use(cors(corsOptions));
+  
+// Connexion à la base de données MySQL
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'root', // Remplacez par votre nom d'utilisateur MySQL
+  password: 'root', // Remplacez par votre mot de passe MySQL
+  database: 'usersdb'
+});
+
+// Vérifier la connexion à la base de données
+db.connect((err) => {
+  if (err) {
+    console.error('Erreur de connexion à la base de données:', err);
+    process.exit(1);
+  } else {
+    console.log('Connecté à la base de données MySQL');
+  }
+});
+
+// Création d'un nouvel utilisateur
+app.post('/users', (req, res) => {
+  const { nom } = req.body;
+  if (!nom) {
+    return res.status(400).json({ message: 'Le champ "nom" est requis.' });
+  }
+
+  const query = 'INSERT INTO users (nom) VALUES (?)';
+  db.query(query, [nom], (err, results) => {
+    if (err) {
+      console.error('Erreur lors de l\'ajout de l\'utilisateur:', err);
+      return res.status(500).json({ message: 'Erreur serveur.' });
+    }
+    res.status(201).json({ id: results.insertId, nom });
+  });
+});
+
+// Lire tous les utilisateurs
+app.get('/users', (req, res) => {
+  const query = 'SELECT * FROM users';
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Erreur lors de la récupération des utilisateurs:', err);
+      return res.status(500).json({ message: 'Erreur serveur.' });
+    }
+    res.status(200).json(results);
+  });
+});
+
+// Lire un utilisateur par ID
+app.get('/users/:id', (req, res) => {
+  const userId = req.params.id;
+  const query = 'SELECT * FROM users WHERE id = ?';
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error('Erreur lors de la récupération de l\'utilisateur:', err);
+      return res.status(500).json({ message: 'Erreur serveur.' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé.' });
+    }
+    res.status(200).json(results[0]);
+  });
+});
+
+// Mettre à jour un utilisateur par ID
+app.put('/users/:id', (req, res) => {
+  const userId = req.params.id;
+  const { nom } = req.body;
+
+  if (!nom) {
+    return res.status(400).json({ message: 'Le champ "nom" est requis.' });
+  }
+
+  const query = 'UPDATE users SET nom = ? WHERE id = ?';
+  db.query(query, [nom, userId], (err, results) => {
+    if (err) {
+      console.error('Erreur lors de la mise à jour de l\'utilisateur:', err);
+      return res.status(500).json({ message: 'Erreur serveur.' });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé.' });
+    }
+    res.status(200).json({ id: userId, nom });
+  });
+});
+
+// Supprimer un utilisateur par ID
+app.delete('/users/:id', (req, res) => {
+  const userId = req.params.id;
+  const query = 'DELETE FROM users WHERE id = ?';
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error('Erreur lors de la suppression de l\'utilisateur:', err);
+      return res.status(500).json({ message: 'Erreur serveur.' });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé.' });
+    }
+    res.status(200).json({ message: 'Utilisateur supprimé avec succès.' });
+  });
+});
+
+// Lancer le serveur
+
+app.listen(PORT, () => {
+  console.log(`Serveur API en écoute sur http://localhost:${PORT}`);
+});
